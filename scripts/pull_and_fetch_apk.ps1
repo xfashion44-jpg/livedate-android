@@ -22,10 +22,13 @@ Set-Location $resolvedRepoRoot
 
 Write-Host "[2/6] Git 상태 확인..."
 $status = git status --porcelain
-if ($status) {
+# artifacts 폴더는 자동 다운로드 결과물이라 무시
+$statusFiltered = $status | Where-Object { $_ -notmatch '^\?\?\s+artifacts[\\/]' }
+
+if ($statusFiltered) {
     Write-Host "로컬 변경사항이 있습니다. pull을 중단합니다."
     Write-Host "아래 변경사항을 먼저 커밋/스태시/정리하세요:"
-    Write-Host $status
+    Write-Host $statusFiltered
     exit 2
 }
 

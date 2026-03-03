@@ -1,6 +1,6 @@
 ﻿param(
     [string]$RepoRoot = ".",
-    [string]$ApkPath = ".\artifacts\app-debug.apk",
+    [string]$ApkPath = ".\artifacts\app-debug-apk\app-debug.apk",
     [switch]$ForceUninstallEmulator
 )
 
