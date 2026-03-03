@@ -68,16 +68,19 @@ foreach ($ridRaw in $runIds) {
     if ($rid -notmatch "^\d+$") { continue }
 
     Write-Host "  Try Run ID: $rid"
-    cmd /c "gh run download $rid --repo $Repo --dir $ArtifactsDir 2>nul"
-    if ($LASTEXITCODE -ne 0) { continue }
-    if ($exit -ne 0) { continue }
-    if ($LASTEXITCODE -ne 0) { continue }
 
-    if ($LASTEXITCODE -eq 0) {
-        $downloaded = $true
-        $usedRunId = $rid
-        break
-    }
+    # gh 실패/경고로 PowerShell이 멈추지 않게 cmd로 실행
+    cmd /c "gh run download $rid --repo $Repo --dir $ArtifactsDir 2>nul"
+
+    # 성공 판정: artifacts 폴더 아래에 apk가 생기면 성공
+    $apk = Get-ChildItem -Path $ArtifactsDir -Recurse -Filter "*.apk" -File -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if (-not $apk) { continue }
+
+    $downloaded = $true
+    $usedRunId = $rid
+    break
 }
 
 if (-not $downloaded) {
