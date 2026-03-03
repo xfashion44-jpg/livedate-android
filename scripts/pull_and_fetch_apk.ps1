@@ -39,15 +39,20 @@ if ($LASTEXITCODE -ne 0) {
     throw "gh 인증이 필요합니다. 먼저 'gh auth login' 실행하세요."
 }
 
-Write-Host "[5/6] 최신 Actions run 조회(최근 10개 중 아티팩트 있는 run 탐색)..."
-$runs = gh run list `
+Write-Host "[5/6] 최신 Actions run 조회(databaseId 단일 추출)..."
+$runId = gh run list `
     --repo $Repo `
     --workflow $Workflow `
-    --limit 10
+    --limit 1 `
+    --json databaseId `
+    --jq '.[0].databaseId'
 
-if (-not $runs) {
-    throw "run list 결과가 비어있습니다. workflow 이름을 확인하세요: $Workflow"
+if (-not $runId) {
+    throw "최신 run id를 찾지 못했습니다. workflow 이름을 확인하세요: $Workflow"
 }
+
+$runId = $runId.Trim()
+Write-Host "  Run ID: $runId"
 
 # 다운로드 폴더는 매번 깨끗하게 초기화(덮어쓰기/잔재 방지)
 if (Test-Path $ArtifactsDir) {
@@ -55,8 +60,7 @@ if (Test-Path $ArtifactsDir) {
 }
 New-Item -ItemType Directory -Path $ArtifactsDir | Out-Null
 
-Write-Host "[6/6] 아티팩트 다운로드(성공하는 run 찾을 때까지)..."
-
+Write-Host "[6/6] 아티팩트 다운로드..."
 $downloaded = $false
 $usedRunId = ""
 
@@ -88,5 +92,6 @@ Write-Host "  RepoRoot    : $resolvedRepoRoot"
 Write-Host "  Run ID      : $runId"
 Write-Host "  Artifact    : $ArtifactName"
 Write-Host "  Output Dir  : $ArtifactsDir"
+
 
 
