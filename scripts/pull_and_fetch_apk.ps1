@@ -2,7 +2,6 @@
     [string]$RepoRoot = ".",
     [string]$Repo = "xfashion44-jpg/livedate-android",
     [string]$Workflow = "Android Debug APK",
-    [string]$ArtifactName = "app-debug-apk",
     [string]$ArtifactsDir = ".\artifacts"
 )
 
@@ -39,38 +38,48 @@ if ($LASTEXITCODE -ne 0) {
     throw "gh 인증이 필요합니다. 먼저 'gh auth login' 실행하세요."
 }
 
-Write-Host "[5/6] 최신 Actions run 조회(databaseId 단일 추출)..."
-$runId = gh run list `
+Write-Host "[5/6] 최근 run 목록 조회(databaseId)..."
+$runIds = gh run list `
     --repo $Repo `
     --workflow $Workflow `
-    --limit 1 `
+    --limit 20 `
     --json databaseId `
-    --jq '.[0].databaseId'
+    --jq '.[].databaseId'
 
-if (-not $runId) {
-    throw "최신 run id를 찾지 못했습니다: $Workflow"
+if (-not $runIds) {
+    throw "run list 결과가 비어있습니다. workflow 이름을 확인하세요: $Workflow"
 }
 
-$runId = $runId.Trim()
-Write-Host "  Run ID: $runId"
-
-# 다운로드 폴더는 매번 깨끗하게 초기화(덮어쓰기/잔재 방지)
+# 다운로드 폴더 초기화
 if (Test-Path $ArtifactsDir) {
     Remove-Item $ArtifactsDir -Recurse -Force
 }
 New-Item -ItemType Directory -Path $ArtifactsDir | Out-Null
 
-Write-Host "[6/6] 아티팩트 다운로드..."
-# 이름 필터 제거: 해당 run의 아티팩트를 전부 다운로드 (이름 변경/숫자 suffix 대응)
-gh run download $runId --repo $Repo --dir $ArtifactsDir
+Write-Host "[6/6] 아티팩트 다운로드(artifact 있는 run 찾기)..."
+$downloaded = $false
+$usedRunId = ""
 
-if ($LASTEXITCODE -ne 0) {
-    throw "아티팩트 다운로드 실패(run id=$runId)"
+foreach ($ridRaw in $runIds) {
+    $rid = $ridRaw.ToString().Trim()
+    if ($rid -notmatch "^\d+$") { continue }
+
+    Write-Host "  Try Run ID: $rid"
+    gh run download $rid --repo $Repo --dir $ArtifactsDir 2>$null
+
+    if ($LASTEXITCODE -eq 0) {
+        $downloaded = $true
+        $usedRunId = $rid
+        break
+    }
+}
+
+if (-not $downloaded) {
+    throw "최근 20개 run에서 아티팩트를 찾지 못했습니다. Actions에서 artifact 생성 여부를 확인하세요."
 }
 
 Write-Host ""
 Write-Host "완료:"
 Write-Host "  RepoRoot    : $resolvedRepoRoot"
-Write-Host "  Run ID      : $runId"
-Write-Host "  Artifact    : (all)"
+Write-Host "  Run ID      : $usedRunId"
 Write-Host "  Output Dir  : $ArtifactsDir"
