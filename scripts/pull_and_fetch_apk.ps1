@@ -34,7 +34,7 @@ Write-Host "[3/6] Git pull..."
 git pull
 
 Write-Host "[4/6] GitHub 인증 확인..."
-$authStatus = gh auth status 2>&1
+$null = gh auth status 2>&1
 if ($LASTEXITCODE -ne 0) {
     throw "gh 인증이 필요합니다. 먼저 'gh auth login' 실행하세요."
 }
@@ -48,7 +48,7 @@ $runId = gh run list `
     --jq '.[0].databaseId'
 
 if (-not $runId) {
-    throw "최신 run id를 찾지 못했습니다. workflow 이름을 확인하세요: $Workflow"
+    throw "최신 run id를 찾지 못했습니다: $Workflow"
 }
 
 $runId = $runId.Trim()
@@ -61,37 +61,16 @@ if (Test-Path $ArtifactsDir) {
 New-Item -ItemType Directory -Path $ArtifactsDir | Out-Null
 
 Write-Host "[6/6] 아티팩트 다운로드..."
-$downloaded = $false
-$usedRunId = ""
+# 이름 필터 제거: 해당 run의 아티팩트를 전부 다운로드 (이름 변경/숫자 suffix 대응)
+gh run download $runId --repo $Repo --dir $ArtifactsDir
 
-# gh run list 출력에서 각 줄의 첫 토큰을 run id로 파싱
-foreach ($line in $runs) {
-    $lineText = $line.ToString().Trim()
-    if (-not $lineText) { continue }
-
-    $rid = ($lineText -split "\s+")[0].Trim()
-    if ($rid -notmatch "^\d+$") { continue }
-
-    Write-Host "  Try Run ID: $rid"
-    gh run download $rid --repo $Repo --name $ArtifactName --dir $ArtifactsDir 2>$null
-
-    if ($LASTEXITCODE -eq 0) {
-        $downloaded = $true
-        $usedRunId = $rid
-        break
-    }
+if ($LASTEXITCODE -ne 0) {
+    throw "아티팩트 다운로드 실패(run id=$runId)"
 }
 
-if (-not $downloaded) {
-    throw "최근 10개 run에서 '$ArtifactName' 아티팩트를 찾지 못했습니다. Actions에서 artifact 생성 여부를 확인하세요."
-}
-
-Write-Host "  Downloaded from Run ID: $usedRunId"Write-Host ""
+Write-Host ""
 Write-Host "완료:"
 Write-Host "  RepoRoot    : $resolvedRepoRoot"
 Write-Host "  Run ID      : $runId"
-Write-Host "  Artifact    : $ArtifactName"
+Write-Host "  Artifact    : (all)"
 Write-Host "  Output Dir  : $ArtifactsDir"
-
-
-
