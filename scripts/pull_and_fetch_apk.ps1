@@ -68,7 +68,8 @@ foreach ($ridRaw in $runIds) {
     if ($rid -notmatch "^\d+$") { continue }
 
     Write-Host "  Try Run ID: $rid"
-    $null = gh run download $rid --repo $Repo --dir $ArtifactsDir 2>$null; $exit = $LASTEXITCODE
+    cmd /c "gh run download $rid --repo $Repo --dir $ArtifactsDir 2>nul"
+    if ($LASTEXITCODE -ne 0) { continue }
     if ($exit -ne 0) { continue }
     if ($LASTEXITCODE -ne 0) { continue }
 
